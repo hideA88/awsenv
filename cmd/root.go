@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"time"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -32,26 +33,45 @@ var rootCmd = &cobra.Command{
 	Long: `set environment variables aws credentials and config.
 you need set -p profile name For example: awsenv -p dev`,
 	Run: func(cmd *cobra.Command, args []string) {
-		logger, _ := zap.NewProduction() //TODO implement
-		//nolint:errcheck
-		defer logger.Sync() // flushes buffer, if any
-
-		sugar := logger.Sugar()
+		logger := logger()
 		ctx := pkg.Context{
-			Context: context.TODO(), Logger: sugar,
+			Context: context.TODO(), Logger: logger,
 		}
 
-		p, _ := cmd.Flags().GetString("profile")
-		c, err := aws.GetCredentials(ctx, p)
+		profile, _ := cmd.Flags().GetString("profile")
+
+		logger.Info("try authentication: ", profile)
+		c, err := aws.GetCredentials(ctx, profile)
 		if err != nil {
-			sugar.Errorf("error: %v", err)
+			logger.Errorf("error: %v", err)
 			return
 		}
+
+		local, _ := time.LoadLocation("Local")
+		expires := c.AWSExpires.In(local).Format(time.RFC3339)
+
+		logger.Info("success. credential ", c.AwsProfileName)
+		logger.Info("AWS_ACCESS_KEY_ID=", c.AwsAccessKeyId)
+		logger.Info("AWS_SECRET_ACCESS_KEY=", c.AwsSecretAccessKey[:5]+"*****...")
+		logger.Info("AWS_SESSION_TOKEN=", c.AwsSessionToken[:10]+"...")
+		logger.Info("AWS_SESSION_EXPIRES=", expires)
+
+		fmt.Printf("export AWS_PROFILE_NAME=%s\n", c.AwsProfileName)
 		fmt.Printf("export AWS_ACCESS_KEY_ID=%s\n", c.AwsAccessKeyId)
 		fmt.Printf("export AWS_SECRET_ACCESS_KEY=%s\n", c.AwsSecretAccessKey)
 		fmt.Printf("export AWS_SESSION_TOKEN=%s\n", c.AwsSessionToken)
-		fmt.Printf("export AWS_SESSION_EXPIRES=%s\n", c.AWSExpires)
+		fmt.Printf("export AWS_SESSION_EXPIRES=%s\n", expires)
 	},
+}
+
+func logger() *zap.SugaredLogger {
+	rowlogger, _ := zap.NewProduction() //TODO implement
+
+	//nolint:errcheck
+	defer rowlogger.Sync() // flushes buffer, if any
+
+	logger := rowlogger.Sugar()
+	return logger
 }
 
 func Execute() {
@@ -69,24 +89,5 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	//if cfgFile != "" {
-	//	// Use config file from the flag.
-	//	viper.SetConfigFile(cfgFile)
-	//} else {
-	//	// Find home directory.
-	//	home, err := os.UserHomeDir()
-	//	cobra.CheckErr(err)
-
-	//	// Search config in home directory with name ".awsenv" (without extension).
-	//	viper.AddConfigPath(home)
-	//	viper.SetConfigType("yaml")
-	//	viper.SetConfigName(".awsenv")
-	//}
-
 	viper.AutomaticEnv() // read in environment variables that match
-
-	//// If a config file is found, read it in.
-	//if err := viper.ReadInConfig(); err == nil {
-	//	fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
-	//}
 }
