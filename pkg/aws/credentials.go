@@ -3,8 +3,8 @@ package aws
 import "time"
 
 type Credential struct {
-	AwsSource string
-	AwsRegion string
+	AwsProfileName string
+	AwsRegion      string
 	AwsAccessKeyId string
 	AwsSecretAccessKey string
 	AwsSessionToken string
