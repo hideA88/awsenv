@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"time"
 )
 
@@ -50,7 +51,8 @@ you need set -p profile name For example: awsenv -p dev`,
 		local, _ := time.LoadLocation("Local")
 		expires := c.AWSExpires.In(local).Format(time.RFC3339)
 
-		logger.Info("success. credential ", c.AwsProfileName)
+		logger.Info("success.")
+		logger.Info("AWS_PROFILE_NAME=", c.AwsProfileName)
 		logger.Info("AWS_ACCESS_KEY_ID=", c.AwsAccessKeyId)
 		logger.Info("AWS_SECRET_ACCESS_KEY=", c.AwsSecretAccessKey[:5]+"*****...")
 		logger.Info("AWS_SESSION_TOKEN=", c.AwsSessionToken[:10]+"...")
@@ -62,16 +64,6 @@ you need set -p profile name For example: awsenv -p dev`,
 		fmt.Printf("export AWS_SESSION_TOKEN=%s\n", c.AwsSessionToken)
 		fmt.Printf("export AWS_SESSION_EXPIRES=%s\n", expires)
 	},
-}
-
-func logger() *zap.SugaredLogger {
-	rowlogger, _ := zap.NewProduction() //TODO implement
-
-	//nolint:errcheck
-	defer rowlogger.Sync() // flushes buffer, if any
-
-	logger := rowlogger.Sugar()
-	return logger
 }
 
 func Execute() {
@@ -90,4 +82,30 @@ func init() {
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	viper.AutomaticEnv() // read in environment variables that match
+}
+
+//TODO -vオプション対応
+func logger() *zap.SugaredLogger {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = localTimeEncoder
+	encoderConfig.CallerKey = ""
+	encoderConfig.LevelKey = ""
+	encoderConfig.TimeKey = ""
+
+	cfg := zap.NewProductionConfig()
+	cfg.EncoderConfig = encoderConfig
+
+	rowLogger, _ := cfg.Build()
+
+
+	//nolint:errcheck
+	defer rowLogger.Sync() // flushes buffer, if any
+
+	logger := rowLogger.Sugar()
+	return logger
+}
+
+func localTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	local, _ := time.LoadLocation("Local")
+	enc.AppendString(t.In(local).Format(time.RFC3339))
 }
