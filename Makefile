@@ -54,7 +54,7 @@ fix:
 	$(GOLANGCI_LINT) --fix ./...
 
 ## Run test
-test:
+test: tools
 	mkdir -p tmp
 	richgo test -race -coverprofile=tmp/coverage.txt -covermode=atomic $(TEST)
 
