@@ -16,4 +16,5 @@
 .bin
 tmp
 
+dist/*
 ./awsenv
