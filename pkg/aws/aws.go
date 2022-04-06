@@ -2,12 +2,13 @@ package aws
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/hideA88/awsenv/pkg"
-	"os"
 )
 
 func GetCredentials(ctx pkg.Context, profile string) (*Credential, error) {
@@ -24,7 +25,7 @@ func GetCredentials(ctx pkg.Context, profile string) (*Credential, error) {
 			return nil, err
 		}
 	} else {
-		cred, err =loadConfig(ctx, profile)
+		cred, err = loadConfig(ctx, profile)
 		if err != nil {
 			ctx.Logger.Errorf("load config error: %v", err)
 			return nil, err
@@ -68,7 +69,7 @@ func assumeRole(ctx pkg.Context, scfg config.SharedConfig) (*aws.Credentials, er
 	)
 
 	if err != nil {
-		return  nil, err
+		return nil, err
 	}
 
 	client := sts.NewFromConfig(cfg)
@@ -76,7 +77,7 @@ func assumeRole(ctx pkg.Context, scfg config.SharedConfig) (*aws.Credentials, er
 	creds := stscreds.NewAssumeRoleProvider(client, scfg.RoleARN,
 		func(o *stscreds.AssumeRoleOptions) {
 			o.SerialNumber = aws.String(scfg.MFASerial)
-			o.TokenProvider = MyStdinTokenProvider
+			o.TokenProvider = myStdinTokenProvider
 		})
 	c, err := creds.Retrieve(ctx.Context)
 	if err != nil {
@@ -85,7 +86,7 @@ func assumeRole(ctx pkg.Context, scfg config.SharedConfig) (*aws.Credentials, er
 	return &c, nil
 }
 
-func MyStdinTokenProvider() (string, error) {
+func myStdinTokenProvider() (string, error) {
 	var v string
 	//標準出力の場合、evalの評価対象になってしまうため
 	fmt.Fprintf(os.Stderr, "Assume Role MFA token code: ")

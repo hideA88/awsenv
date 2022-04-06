@@ -18,13 +18,14 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/hideA88/awsenv/pkg"
 	"github.com/hideA88/awsenv/pkg/aws"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"time"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -55,14 +56,18 @@ you need set -p profile name For example: awsenv -p dev`,
 		logger.Info("AWS_PROFILE_NAME=", c.AwsProfileName)
 		logger.Info("AWS_ACCESS_KEY_ID=", c.AwsAccessKeyId)
 		logger.Info("AWS_SECRET_ACCESS_KEY=", c.AwsSecretAccessKey[:5]+"*****...")
-		logger.Info("AWS_SESSION_TOKEN=", c.AwsSessionToken[:10]+"...")
-		logger.Info("AWS_SESSION_EXPIRES=", expires)
+		if len(c.AwsSessionToken) > 0 {
+			logger.Info("AWS_SESSION_TOKEN=", c.AwsSessionToken[:10]+"...")
+			logger.Info("AWS_SESSION_EXPIRES=", expires)
+		}
 
 		fmt.Printf("export AWS_PROFILE_NAME=%s\n", c.AwsProfileName)
 		fmt.Printf("export AWS_ACCESS_KEY_ID=%s\n", c.AwsAccessKeyId)
 		fmt.Printf("export AWS_SECRET_ACCESS_KEY=%s\n", c.AwsSecretAccessKey)
-		fmt.Printf("export AWS_SESSION_TOKEN=%s\n", c.AwsSessionToken)
-		fmt.Printf("export AWS_SESSION_EXPIRES=%s\n", expires)
+		if len(c.AwsSessionToken) > 0 {
+			fmt.Printf("export AWS_SESSION_TOKEN=%s\n", c.AwsSessionToken)
+			fmt.Printf("export AWS_SESSION_EXPIRES=%s\n", expires)
+		}
 	},
 }
 
@@ -88,15 +93,12 @@ func initConfig() {
 func logger() *zap.SugaredLogger {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = localTimeEncoder
-	encoderConfig.CallerKey = ""
-	encoderConfig.LevelKey = ""
-	encoderConfig.TimeKey = ""
 
 	cfg := zap.NewProductionConfig()
 	cfg.EncoderConfig = encoderConfig
+	cfg.OutputPaths = []string{"stderr"} // stdoutに出力するとevalでの表示対象となってしまうため
 
 	rowLogger, _ := cfg.Build()
-
 
 	//nolint:errcheck
 	defer rowLogger.Sync() // flushes buffer, if any
