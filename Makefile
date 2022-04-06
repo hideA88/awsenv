@@ -6,7 +6,11 @@ GOLANGCI_LINT = golangci-lint run
 TEST = ./...
 PKGNAME = $(shell go list -m)
 GIT_COMMIT = $(shell git rev-parse HEAD)
-LDFLAGS = -ldflags "-X $(PKGNAME)/pkg/version.gitCommit=$(GIT_COMMIT)"
+VERSION =$(shell git symbolic-ref -q --short HEAD || git describe --tags --exact-match)
+BUILD=local
+LDFLAGS = -ldflags "-X $(PKGNAME)/pkg/version.gitCommit=$(GIT_COMMIT) \
+										-X $(PKGNAME)/pkg/version.version=$(VERSION)\
+										-X $(PKGNAME)/pkg/version.build=$(BUILD)"
 
 # command
 defualt: tools help
@@ -34,15 +38,12 @@ tools:
 ## Remove build target
 clean:
 	rm -f $(TARGETS)
+	rm -rf dist
 	rm -rf tmp
 
 ## Build app
-build: deps
-	go build ./...
-build.cmd: clean $(TARGETS)
-
-$(TARGETS): deps
-	go build $(LDFLAGS) ./cmd/$@
+build: clean deps
+	go build $(LDFLAGS) -o dist/$(TARGETS) main.go
 
 ## Check code format
 check:
