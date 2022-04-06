@@ -35,7 +35,8 @@ var rootCmd = &cobra.Command{
 	Long: `set environment variables aws credentials and config.
 you need set -p profile name For example: awsenv -p dev`,
 	Run: func(cmd *cobra.Command, args []string) {
-		logger := logger()
+		verbose, _ := cmd.Flags().GetBool("verbose")
+		logger := logger(verbose)
 		ctx := pkg.Context{
 			Context: context.TODO(), Logger: logger,
 		}
@@ -82,6 +83,7 @@ func init() {
 	// will be global for your application.
 	rootCmd.Flags().StringP("profile", "p", "default", "aws profile name")
 	rootCmd.Flags().StringP("file", "f", "$HOME/.aws/credentials)", "credentials file location")
+	rootCmd.Flags().BoolP("verbose", "v", false, "show detail logs")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -89,10 +91,13 @@ func initConfig() {
 	viper.AutomaticEnv() // read in environment variables that match
 }
 
-//TODO -vオプション対応
-func logger() *zap.SugaredLogger {
+func logger(verbose bool) *zap.SugaredLogger {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = localTimeEncoder
+	if !verbose {
+		encoderConfig.CallerKey = ""
+		encoderConfig.LevelKey = ""
+	}
 
 	cfg := zap.NewProductionConfig()
 	cfg.EncoderConfig = encoderConfig
