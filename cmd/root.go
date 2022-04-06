@@ -17,15 +17,12 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/hideA88/awsenv/pkg"
 	"github.com/hideA88/awsenv/pkg/aws"
+	"github.com/hideA88/awsenv/pkg/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -36,38 +33,17 @@ var rootCmd = &cobra.Command{
 you need set -p profile name For example: awsenv -p dev`,
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Flags().GetBool("verbose")
-		logger := logger(verbose)
+		logger := Logger(verbose)
 		ctx := pkg.Context{
 			Context: context.TODO(), Logger: logger,
 		}
 
-		profile, _ := cmd.Flags().GetString("profile")
-
-		logger.Info("try authentication: ", profile)
-		c, err := aws.GetCredentials(ctx, profile)
-		if err != nil {
-			logger.Errorf("error: %v", err)
-			return
-		}
-
-		local, _ := time.LoadLocation("Local")
-		expires := c.AWSExpires.In(local).Format(time.RFC3339)
-
-		logger.Info("success.")
-		logger.Info("AWS_PROFILE_NAME=", c.AwsProfileName)
-		logger.Info("AWS_ACCESS_KEY_ID=", c.AwsAccessKeyId)
-		logger.Info("AWS_SECRET_ACCESS_KEY=", c.AwsSecretAccessKey[:5]+"*****...")
-		if len(c.AwsSessionToken) > 0 {
-			logger.Info("AWS_SESSION_TOKEN=", c.AwsSessionToken[:10]+"...")
-			logger.Info("AWS_SESSION_EXPIRES=", expires)
-		}
-
-		fmt.Printf("export AWS_PROFILE_NAME=%s\n", c.AwsProfileName)
-		fmt.Printf("export AWS_ACCESS_KEY_ID=%s\n", c.AwsAccessKeyId)
-		fmt.Printf("export AWS_SECRET_ACCESS_KEY=%s\n", c.AwsSecretAccessKey)
-		if len(c.AwsSessionToken) > 0 {
-			fmt.Printf("export AWS_SESSION_TOKEN=%s\n", c.AwsSessionToken)
-			fmt.Printf("export AWS_SESSION_EXPIRES=%s\n", expires)
+		isVer, _ := cmd.Flags().GetBool("version")
+		if isVer {
+			version.Show(ctx)
+		} else {
+			profile, _ := cmd.Flags().GetString("profile")
+			aws.Auth(ctx, profile)
 		}
 	},
 }
@@ -84,35 +60,10 @@ func init() {
 	rootCmd.Flags().StringP("profile", "p", "default", "aws profile name")
 	rootCmd.Flags().StringP("file", "f", "$HOME/.aws/credentials)", "credentials file location")
 	rootCmd.Flags().BoolP("verbose", "v", false, "show detail logs")
+	rootCmd.Flags().Bool("version", false, "show version and system info")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	viper.AutomaticEnv() // read in environment variables that match
-}
-
-func logger(verbose bool) *zap.SugaredLogger {
-	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = localTimeEncoder
-	if !verbose {
-		encoderConfig.CallerKey = ""
-		encoderConfig.LevelKey = ""
-	}
-
-	cfg := zap.NewProductionConfig()
-	cfg.EncoderConfig = encoderConfig
-	cfg.OutputPaths = []string{"stderr"} // stdoutに出力するとevalでの表示対象となってしまうため
-
-	rowLogger, _ := cfg.Build()
-
-	//nolint:errcheck
-	defer rowLogger.Sync() // flushes buffer, if any
-
-	logger := rowLogger.Sugar()
-	return logger
-}
-
-func localTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	local, _ := time.LoadLocation("Local")
-	enc.AppendString(t.In(local).Format(time.RFC3339))
 }

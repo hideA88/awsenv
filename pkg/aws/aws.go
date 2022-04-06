@@ -3,6 +3,7 @@ package aws
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -11,7 +12,37 @@ import (
 	"github.com/hideA88/awsenv/pkg"
 )
 
-func GetCredentials(ctx pkg.Context, profile string) (*Credential, error) {
+func Auth(ctx pkg.Context, profile string) {
+	logger := ctx.Logger
+	logger.Info("try authentication: ", profile)
+	c, err := getCredentials(ctx, profile)
+	if err != nil {
+		logger.Errorf("error: %v", err)
+		return
+	}
+
+	local, _ := time.LoadLocation("Local")
+	expires := c.AWSExpires.In(local).Format(time.RFC3339)
+
+	logger.Info("success.")
+	logger.Info("AWS_PROFILE_NAME=", c.AwsProfileName)
+	logger.Info("AWS_ACCESS_KEY_ID=", c.AwsAccessKeyId)
+	logger.Info("AWS_SECRET_ACCESS_KEY=", c.AwsSecretAccessKey[:5]+"*****...")
+	if len(c.AwsSessionToken) > 0 {
+		logger.Info("AWS_SESSION_TOKEN=", c.AwsSessionToken[:10]+"...")
+		logger.Info("AWS_SESSION_EXPIRES=", expires)
+	}
+
+	fmt.Printf("export AWS_PROFILE_NAME=%s\n", c.AwsProfileName)
+	fmt.Printf("export AWS_ACCESS_KEY_ID=%s\n", c.AwsAccessKeyId)
+	fmt.Printf("export AWS_SECRET_ACCESS_KEY=%s\n", c.AwsSecretAccessKey)
+	if len(c.AwsSessionToken) > 0 {
+		fmt.Printf("export AWS_SESSION_TOKEN=%s\n", c.AwsSessionToken)
+		fmt.Printf("export AWS_SESSION_EXPIRES=%s\n", expires)
+	}
+}
+
+func getCredentials(ctx pkg.Context, profile string) (*Credential, error) {
 	cfg, err := config.LoadSharedConfigProfile(ctx.Context, profile)
 	if err != nil {
 		return nil, err
